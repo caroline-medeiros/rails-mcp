@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require "json"
+require 'json'
 
 module Rails
   module Mcp
     class Server
       def start
-        warn "Rails MCP Server iniciado..."
+        warn 'Rails MCP Server iniciado...'
         $stdin.each_line do |line|
           handle_message(line)
         rescue StandardError => e
@@ -21,66 +21,66 @@ module Rails
         return if line.strip.empty?
 
         request = JSON.parse(line)
-        warn "Recebi método: #{request["method"]}"
+        warn "Recebi método: #{request['method']}"
 
-        case request["method"]
-        when "initialize"
+        case request['method']
+        when 'initialize'
           response = {
-            jsonrpc: "2.0",
-            id: request["id"],
+            jsonrpc: '2.0',
+            id: request['id'],
             result: {
-              protocolVersion: "2024-11-05",
+              protocolVersion: '2024-11-05',
               capabilities: {
                 resources: {}
               },
               serverInfo: {
-                name: "rails-mcp",
-                version: "0.1.0"
+                name: 'rails-mcp',
+                version: '0.1.0'
               }
             }
           }
           send_response(response)
 
-        when "notifications/initialized"
-          warn "Conexão estabelecida!"
+        when 'notifications/initialized'
+          warn 'Conexão estabelecida!'
 
-        when "resources/list"
+        when 'resources/list'
           response = {
-            jsonrpc: "2.0",
-            id: request["id"],
+            jsonrpc: '2.0',
+            id: request['id'],
             result: {
               resources: [
                 {
-                  uri: "rails://schema",
-                  name: "Schema do Banco",
-                  mimeType: "application/ruby"
+                  uri: 'rails://schema',
+                  name: 'Schema do Banco',
+                  mimeType: 'application/ruby'
                 },
                 {
-                  uri: "rails://routes",
-                  name: "Rotas da Aplicação",
-                  mimeType: "text/plain"
+                  uri: 'rails://routes',
+                  name: 'Rotas da Aplicação',
+                  mimeType: 'text/plain'
                 }
               ]
             }
           }
           send_response(response)
 
-        when "resources/read"
-          full_uri = request.dig("params", "uri")
+        when 'resources/read'
+          full_uri = request.dig('params', 'uri')
 
-          uri, query_string = full_uri.split("?")
-          search_term = query_string&.split("q=")&.last
+          uri, query_string = full_uri.split('?')
+          search_term = query_string&.split('q=')&.last
 
-          content = ""
+          content = ''
 
-          if uri == "rails://schema"
-            content = if File.exist?("db/schema.rb")
-                        File.read("db/schema.rb")
+          if uri == 'rails://schema'
+            content = if File.exist?('db/schema.rb')
+                        File.read('db/schema.rb')
                       else
-                        "# Erro: db/schema.rb não encontrado."
+                        '# Erro: db/schema.rb não encontrado.'
                       end
 
-          elsif uri == "rails://routes"
+          elsif uri == 'rails://routes'
             if defined?(::Rails)
               all_routes = ::Rails.application.routes.routes.map do |route|
                 verb = route.verb.to_s
@@ -89,7 +89,7 @@ module Rails
                 reqs = route.requirements
                 controller_action = "#{reqs[:controller]}##{reqs[:action]}"
 
-                next if path.start_with?("/rails") || path.start_with?("/assets")
+                next if path.start_with?('/rails') || path.start_with?('/assets')
 
                 "#{verb.ljust(8)} #{path.ljust(50)} #{controller_action}"
               end.compact.uniq
@@ -104,20 +104,20 @@ module Rails
               end
 
             else
-              content = "Erro: Rails não carregado."
+              content = 'Erro: Rails não carregado.'
             end
           else
             content = "# Erro: Recurso desconhecido: #{uri}"
           end
 
           response = {
-            jsonrpc: "2.0",
-            id: request["id"],
+            jsonrpc: '2.0',
+            id: request['id'],
             result: {
               contents: [
                 {
                   uri: full_uri,
-                  mimeType: "text/plain",
+                  mimeType: 'text/plain',
                   text: content
                 }
               ]
@@ -125,8 +125,8 @@ module Rails
           }
           send_response(response)
 
-        when "ping"
-          send_response({ jsonrpc: "2.0", id: request["id"], result: {} })
+        when 'ping'
+          send_response({ jsonrpc: '2.0', id: request['id'], result: {} })
         end
       end
 

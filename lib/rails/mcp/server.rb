@@ -76,8 +76,10 @@ module Rails
           if uri == 'rails://schema'
             content = if File.exist?('db/schema.rb')
                         File.read('db/schema.rb')
+                      elsif File.exist?('db/structure.sql')
+                        File.read('db/structure.sql')
                       else
-                        '# Erro: db/schema.rb não encontrado.'
+                        '# Erro: Não encontrei nem db/schema.rb nem db/structure.sql'
                       end
 
           elsif uri == 'rails://routes'

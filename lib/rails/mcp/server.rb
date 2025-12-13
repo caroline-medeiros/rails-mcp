@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "json"
 
 module Rails
@@ -65,18 +67,18 @@ module Rails
 
         when "resources/read"
           full_uri = request.dig("params", "uri")
-          
+
           uri, query_string = full_uri.split("?")
-          search_term = query_string&.split("q=") &.last
+          search_term = query_string&.split("q=")&.last
 
           content = ""
 
           if uri == "rails://schema"
-            if File.exist?("db/schema.rb")
-              content = File.read("db/schema.rb")
-            else
-              content = "# Erro: db/schema.rb não encontrado."
-            end
+            content = if File.exist?("db/schema.rb")
+                        File.read("db/schema.rb")
+                      else
+                        "# Erro: db/schema.rb não encontrado."
+                      end
 
           elsif uri == "rails://routes"
             if defined?(::Rails)
@@ -88,7 +90,6 @@ module Rails
                 controller_action = "#{reqs[:controller]}##{reqs[:action]}"
 
                 next if path.start_with?("/rails") || path.start_with?("/assets")
-                
 
                 "#{verb.ljust(8)} #{path.ljust(50)} #{controller_action}"
               end.compact.uniq
@@ -96,14 +97,12 @@ module Rails
               if search_term && !search_term.empty?
                 filtered_routes = all_routes.select { |r| r.include?(search_term) }
                 content = filtered_routes.join("\n")
-                
-                if content.empty?
-                  content = "# Nenhuma rota encontrada para o termo: '#{search_term}'"
-                end
+
+                content = "# Nenhuma rota encontrada para o termo: '#{search_term}'" if content.empty?
               else
                 content = all_routes.join("\n")
               end
-              
+
             else
               content = "Erro: Rails não carregado."
             end

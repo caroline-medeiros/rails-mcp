@@ -1,0 +1,15 @@
+require "bundler/setup"
+require "rails-mcp"
+
+if File.exist?("config/environment.rb")
+  puts "Detectei um projeto Rails! Carregando ambiente..."
+
+  require "./config/environment"
+
+  puts "Rails carregado com sucesso!"
+else
+  puts "Aviso: Não estou na raiz de um projeto Rails. Algumas funções não vão funcionar."
+end
+
+
+Rails::Mcp::Server.new.start

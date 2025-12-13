@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "rails/mcp/version"
 require_relative "rails/mcp/server"
 

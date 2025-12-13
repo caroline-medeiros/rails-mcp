@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 require "json"
 
 module Rails
@@ -66,32 +64,51 @@ module Rails
           send_response(response)
 
         when "resources/read"
-          uri = request.dig("params", "uri")
+          full_uri = request.dig("params", "uri")
+          
+          uri, query_string = full_uri.split("?")
+          search_term = query_string&.split("q=") &.last
+
           content = ""
 
           if uri == "rails://schema"
-            content = if File.exist?("db/schema.rb")
-                        File.read("db/schema.rb")
-                      else
-                        "# Erro: Arquivo db/schema.rb não encontrado aqui na pasta da gem."
-                      end
+            if File.exist?("db/schema.rb")
+              content = File.read("db/schema.rb")
+            else
+              content = "# Erro: db/schema.rb não encontrado."
+            end
+
           elsif uri == "rails://routes"
             if defined?(::Rails)
-              routes = ::Rails.application.routes.routes.map do |route|
+              all_routes = ::Rails.application.routes.routes.map do |route|
                 verb = route.verb.to_s
                 path = route.path.spec.to_s
 
+                reqs = route.requirements
+                controller_action = "#{reqs[:controller]}##{reqs[:action]}"
+
                 next if path.start_with?("/rails") || path.start_with?("/assets")
+                
 
-                "#{verb.ljust(8)} #{path}"
-              end.compact.uniq.join("\n")
+                "#{verb.ljust(8)} #{path.ljust(50)} #{controller_action}"
+              end.compact.uniq
 
-              content = routes
+              if search_term && !search_term.empty?
+                filtered_routes = all_routes.select { |r| r.include?(search_term) }
+                content = filtered_routes.join("\n")
+                
+                if content.empty?
+                  content = "# Nenhuma rota encontrada para o termo: '#{search_term}'"
+                end
+              else
+                content = all_routes.join("\n")
+              end
+              
             else
-              content = "Erro: O Rails não está carregado. Rode o comando na raiz do projeto."
+              content = "Erro: Rails não carregado."
             end
           else
-            content = "# Erro: Recurso desconhecido ou não implementado: #{uri}"
+            content = "# Erro: Recurso desconhecido: #{uri}"
           end
 
           response = {
@@ -100,7 +117,7 @@ module Rails
             result: {
               contents: [
                 {
-                  uri: uri,
+                  uri: full_uri,
                   mimeType: "text/plain",
                   text: content
                 }

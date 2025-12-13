@@ -1,8 +1,27 @@
 AllCops:
-  TargetRubyVersion: 3.2
+  NewCops: enable
 
-Style/StringLiterals:
-  EnforcedStyle: double_quotes
+Naming/FileName:
+  Exclude:
+    - 'lib/rails-mcp.rb'
 
-Style/StringLiteralsInInterpolation:
-  EnforcedStyle: double_quotes
+Style/Documentation:
+  Enabled: false
+
+Metrics/ClassLength:
+  Max: 150
+
+Metrics/MethodLength:
+  Max: 100
+
+Metrics/AbcSize:
+  Enabled: false
+
+Metrics/CyclomaticComplexity:
+  Enabled: false
+
+Metrics/PerceivedComplexity:
+  Enabled: false
+
+Metrics/BlockNesting:
+  Max: 4

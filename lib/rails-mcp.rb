@@ -1,11 +1,13 @@
+# lib/rails-mcp.rb
 # frozen_string_literal: true
 
-require_relative 'rails/mcp/version'
-require_relative 'rails/mcp/server'
+require 'rails/mcp/version'
+require 'rails/mcp/server'
+
+require 'rails/mcp/railtie'
 
 module Rails
   module Mcp
     class Error < StandardError; end
   end
-  require 'rails/mcp/railtie' if defined?(Rails::Railtie)
 end

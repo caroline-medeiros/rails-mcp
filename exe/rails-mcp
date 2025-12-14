@@ -2,15 +2,13 @@
 # frozen_string_literal: true
 
 $stdout.sync = true
+
 require 'bundler/setup'
 require 'rails-mcp'
 
 if File.exist?('config/environment.rb')
   warn '🛤️  Detectei um projeto Rails! Carregando ambiente...'
-
   require './config/environment'
-
-  warn 'Rails carregado com sucesso!'
 else
   warn 'Aviso: Não estou na raiz de um projeto Rails.'
 end

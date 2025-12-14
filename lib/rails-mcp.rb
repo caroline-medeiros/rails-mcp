@@ -7,4 +7,5 @@ module Rails
   module Mcp
     class Error < StandardError; end
   end
+  require 'rails/mcp/railtie' if defined?(Rails::Railtie)
 end

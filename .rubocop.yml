@@ -25,3 +25,8 @@ Metrics/PerceivedComplexity:
 
 Metrics/BlockNesting:
   Max: 4
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*.rb'
+    - 'lib/tasks/*.rake'

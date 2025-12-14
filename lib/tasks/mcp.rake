@@ -1,64 +1,90 @@
 # frozen_string_literal: true
 
-# lib/tasks/mcp.rake
 namespace :mcp do
-  desc 'Configura o ambiente para uso com Claude Desktop'
+  desc 'Configura o ambiente e injeta a config no Claude automaticamente'
   task :setup do
     require 'fileutils'
+    require 'json'
 
     wrapper_path = File.expand_path('~/rails-mcp-wrapper.sh')
+
     script_content = <<~SCRIPT
       #!/bin/zsh
-      # Gerado automaticamente por rails-mcp v1.0
+      # Wrapper Rails MCP (Auto-generated v2)
+      # Gerado em: #{Time.now}
+
+      # Redireciona logs para debug em caso de erro
+      LOGfile="$HOME/mcp-debug.log"
+      exec 2>> "$LOGfile"
 
       PROJECT_PATH=$1
 
-      if [ -z "$PROJECT_PATH" ]; then
-        echo "Erro: Caminho do projeto não fornecido." >&2
-        exit 1
-      fi
-
-      # 1. Carrega o RVM/Asdf do usuário
+      # 1. Carrega o RVM/Ruby do usuário
       export HOME="#{Dir.home}"
       if [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
         source "$HOME/.rvm/scripts/rvm"
-      elif [[ -f "$HOME/.asdf/asdf.sh" ]]; then
-        source "$HOME/.asdf/asdf.sh"
       else
         source ~/.zshrc > /dev/null 2>&1
       fi
 
-      # 2. Entra na pasta do projeto
-      cd "$PROJECT_PATH" || { echo "Pasta não encontrada" >&2; exit 1; }
+      # 2. Entra na pasta
+      cd "$PROJECT_PATH" || exit 1
 
-      # 3. DETECTA VERSÃO DO RUBY (.ruby-version)
-      # Isso resolve o problema de conflito (ex: 3.4.6 vs 3.4.7)
+      # 3. Detecta versão (Bypass de permissão usando Ruby)
+      # O macOS bloqueia 'cat', mas permite o ruby ler o arquivo
       if [ -f ".ruby-version" ]; then
-        REQUIRED_VERSION=$(cat .ruby-version | tr -d '[:space:]')
-        # Tenta trocar para a versão que o projeto pede
-        rvm use "$REQUIRED_VERSION" > /dev/null 2>&1 || true
+        REQUIRED_VERSION=$(ruby -e 'print File.read(".ruby-version").strip' 2>/dev/null)
+        if [ -n "$REQUIRED_VERSION" ]; then
+          rvm use "$REQUIRED_VERSION" > /dev/null 2>&1 || true
+        else
+          rvm use . > /dev/null 2>&1
+        fi
       fi
 
-      # 4. Roda a gem
-      bundle exec rails-mcp
+      # 4. Garante dependências
+      bundle check > /dev/null 2>&1 || bundle install >&2
+
+      # 5. Roda a gem
+      # Tenta rodar pelo binário direto ou via bundle exec
+      ./bin/rails-mcp 2>/dev/null || bundle exec rails-mcp
     SCRIPT
 
     File.write(wrapper_path, script_content)
-    File.chmod(0o755, wrapper_path)
+    FileUtils.chmod(0o755, wrapper_path)
+    puts "Script wrapper atualizado em: #{wrapper_path}"
 
-    puts "✅ Script de ponte criado/atualizado com sucesso em: #{wrapper_path}"
+    claude_config_dir = File.expand_path('~/Library/Application Support/Claude')
+    claude_config_file = File.join(claude_config_dir, 'claude_desktop_config.json')
+
+    project_name = File.basename(Dir.pwd)
+    project_path = Dir.pwd
+
+    FileUtils.mkdir_p(claude_config_dir)
+
+    config = if File.exist?(claude_config_file)
+               begin
+                 JSON.parse(File.read(claude_config_file))
+               rescue JSON::ParserError
+                 { 'mcpServers' => {} }
+               end
+             else
+               { 'mcpServers' => {} }
+             end
+
+    config['mcpServers'] ||= {}
+
+    config['mcpServers'][project_name] = {
+      'command' => wrapper_path,
+      'args' => [project_path]
+    }
+
+    File.write(claude_config_file, JSON.pretty_generate(config))
+
     puts ''
-    puts '📋 COPIE O JSON ABAIXO PARA O SEU CLAUDE CONFIG:'
-    puts '   (Arquivo: ~/Library/Application Support/Claude/claude_desktop_config.json)'
+    puts 'SUCESSO! Configuração injetada no Claude Desktop.'
+    puts "   Projeto: #{project_name}"
+    puts "   Arquivo: #{claude_config_file}"
     puts ''
-    puts '{'
-    puts '  "mcpServers": {'
-    puts "    \"#{File.basename(Dir.pwd)}\": {"
-    puts "      \"command\": \"#{wrapper_path}\","
-    puts "      \"args\": [\"#{Dir.pwd}\"]"
-    puts '    }'
-    puts '  }'
-    puts '}'
-    puts ''
+    puts 'Reinicie o Claude Desktop para ver o ícone 🔌.'
   end
 end

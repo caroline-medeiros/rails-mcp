@@ -6,11 +6,23 @@ $stdout.sync = true
 require 'bundler/setup'
 require 'rails-mcp'
 
-if File.exist?('config/environment.rb')
-  warn 'Detectei um projeto Rails! Carregando ambiente...'
-  require './config/environment'
-else
-  warn 'Aviso: Não estou na raiz de um projeto Rails.'
+original_stdout = $stdout.dup
+
+begin
+  $stdout.reopen($stderr)
+
+  if File.exist?('config/environment.rb')
+    warn 'Detectei um projeto Rails! Carregando ambiente...'
+    require './config/environment'
+  else
+    warn 'Aviso: Não estou na raiz de um projeto Rails.'
+  end
+rescue StandardError => e
+  warn "Erro fatal ao carregar Rails: #{e.message}"
+  warn e.backtrace.join("\n")
+  exit 1
+ensure
+  $stdout.reopen(original_stdout)
 end
 
 Rails::Mcp::Server.new.start

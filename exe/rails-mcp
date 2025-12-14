@@ -2,7 +2,6 @@
 # frozen_string_literal: true
 
 $stdout.sync = true
-
 require 'bundler/setup'
 require 'rails-mcp'
 
@@ -18,8 +17,7 @@ begin
     warn 'Aviso: Não estou na raiz de um projeto Rails.'
   end
 rescue StandardError => e
-  warn "Erro fatal ao carregar Rails: #{e.message}"
-  warn e.backtrace.join("\n")
+  warn "Erro fatal: #{e.message}"
   exit 1
 ensure
   $stdout.reopen(original_stdout)

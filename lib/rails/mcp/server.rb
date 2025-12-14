@@ -6,11 +6,10 @@ module Rails
   module Mcp
     class Server
       def start
-        warn 'Rails MCP Server iniciado...'
         $stdin.each_line do |line|
           handle_message(line)
         rescue StandardError => e
-          warn "ERRO FATAL: #{e.message}"
+          warn "Erro ao processar mensagem: #{e.message}"
           warn e.backtrace.join("\n")
         end
       end
@@ -18,123 +17,160 @@ module Rails
       private
 
       def handle_message(line)
-        return if line.strip.empty?
-
         request = JSON.parse(line)
-        warn "Recebi método: #{request['method']}"
 
-        case request['method']
-        when 'initialize'
-          response = {
-            jsonrpc: '2.0',
-            id: request['id'],
-            result: {
-              protocolVersion: '2024-11-05',
-              capabilities: {
-                resources: {}
-              },
-              serverInfo: {
-                name: 'rails-mcp',
-                version: '0.1.0'
-              }
-            }
-          }
-          send_response(response)
+        # Roteador de mensagens
+        response = case request['method']
+                   when 'initialize'
+                     handle_initialize(request)
+                   when 'notifications/initialized'
+                     nil
+                   when 'resources/list'
+                     handle_list_resources(request)
+                   when 'resources/read'
+                     handle_read_resource(request)
+                   when 'tools/list'
+                     handle_list_tools(request)
+                   when 'tools/call'
+                     handle_call_tool(request)
+                   end
 
-        when 'notifications/initialized'
-          warn 'Conexão estabelecida!'
+        return unless response
 
-        when 'resources/list'
-          response = {
-            jsonrpc: '2.0',
-            id: request['id'],
-            result: {
-              resources: [
-                {
-                  uri: 'rails://schema',
-                  name: 'Schema do Banco',
-                  mimeType: 'application/ruby'
-                },
-                {
-                  uri: 'rails://routes',
-                  name: 'Rotas da Aplicação',
-                  mimeType: 'text/plain'
-                }
-              ]
-            }
-          }
-          send_response(response)
-
-        when 'resources/read'
-          full_uri = request.dig('params', 'uri')
-
-          uri, query_string = full_uri.split('?')
-          search_term = query_string&.split('q=')&.last
-
-          content = ''
-
-          if uri == 'rails://schema'
-            content = if File.exist?('db/schema.rb')
-                        File.read('db/schema.rb')
-                      elsif File.exist?('db/structure.sql')
-                        File.read('db/structure.sql')
-                      else
-                        '# Erro: Não encontrei nem db/schema.rb nem db/structure.sql'
-                      end
-
-          elsif uri == 'rails://routes'
-            if defined?(::Rails)
-              all_routes = ::Rails.application.routes.routes.map do |route|
-                verb = route.verb.to_s
-                path = route.path.spec.to_s
-
-                reqs = route.requirements
-                controller_action = "#{reqs[:controller]}##{reqs[:action]}"
-
-                next if path.start_with?('/rails') || path.start_with?('/assets')
-
-                "#{verb.ljust(8)} #{path.ljust(50)} #{controller_action}"
-              end.compact.uniq
-
-              if search_term && !search_term.empty?
-                filtered_routes = all_routes.select { |r| r.include?(search_term) }
-                content = filtered_routes.join("\n")
-
-                content = "# Nenhuma rota encontrada para o termo: '#{search_term}'" if content.empty?
-              else
-                content = all_routes.join("\n")
-              end
-
-            else
-              content = 'Erro: Rails não carregado.'
-            end
-          else
-            content = "# Erro: Recurso desconhecido: #{uri}"
-          end
-
-          response = {
-            jsonrpc: '2.0',
-            id: request['id'],
-            result: {
-              contents: [
-                {
-                  uri: full_uri,
-                  mimeType: 'text/plain',
-                  text: content
-                }
-              ]
-            }
-          }
-          send_response(response)
-
-        when 'ping'
-          send_response({ jsonrpc: '2.0', id: request['id'], result: {} })
-        end
+        $stdout.print "#{response.to_json}\n"
+        $stdout.flush
       end
 
-      def send_response(response)
-        puts response.to_json
-        $stdout.flush
+      def handle_initialize(request)
+        {
+          jsonrpc: '2.0',
+          id: request['id'],
+          result: {
+            protocolVersion: '2024-11-05',
+            capabilities: {
+              resources: {},
+              tools: {}
+            },
+            serverInfo: { name: 'rails-mcp', version: Rails::Mcp::VERSION }
+          }
+        }
+      end
+
+      def handle_list_resources(request)
+        {
+          jsonrpc: '2.0',
+          id: request['id'],
+          result: {
+            resources: [
+              { uri: 'rails://schema', name: 'Schema do Banco', mimeType: 'application/ruby' },
+              { uri: 'rails://routes', name: 'Rotas da Aplicação', mimeType: 'text/plain' }
+            ]
+          }
+        }
+      end
+
+      def handle_read_resource(request)
+        uri = request.dig('params', 'uri')
+        content = case uri
+                  when 'rails://schema'
+                    File.exist?('db/schema.rb') ? File.read('db/schema.rb') : 'Schema não encontrado.'
+                  when 'rails://routes'
+                    `bundle exec rails routes`
+                  else
+                    'Recurso desconhecido'
+                  end
+
+        {
+          jsonrpc: '2.0',
+          id: request['id'],
+          result: {
+            contents: [{ uri: uri, mimeType: 'text/plain', text: content }]
+          }
+        }
+      end
+
+      def handle_list_tools(request)
+        {
+          jsonrpc: '2.0',
+          id: request['id'],
+          result: {
+            tools: [
+              {
+                name: 'ls',
+                description: 'Lista arquivos e pastas dentro do projeto Rails.',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    path: { type: 'string', description: 'Caminho relativo (ex: app/models)' }
+                  },
+                  required: ['path']
+                }
+              },
+              {
+                name: 'read_file',
+                description: 'Lê o conteúdo de um arquivo de código.',
+                inputSchema: {
+                  type: 'object',
+                  properties: {
+                    path: { type: 'string', description: 'Caminho do arquivo (ex: app/models/user.rb)' }
+                  },
+                  required: ['path']
+                }
+              }
+            ]
+          }
+        }
+      end
+
+      def handle_call_tool(request)
+        name = request.dig('params', 'name')
+        args = request.dig('params', 'arguments')
+
+        result_content = case name
+                         when 'ls'
+                           list_files(args['path'])
+                         when 'read_file'
+                           read_file_content(args['path'])
+                         else
+                           'Ferramenta desconhecida'
+                         end
+
+        {
+          jsonrpc: '2.0',
+          id: request['id'],
+          result: {
+            content: [{ type: 'text', text: result_content }]
+          }
+        }
+      end
+
+      def list_files(path)
+        return 'Erro: Caminho inválido (tentativa de sair do root)' if path.include?('..')
+
+        full_path = File.join(Dir.pwd, path)
+
+        if File.directory?(full_path)
+          entries = Dir.entries(full_path) - ['.', '..']
+          entries.map { |e| File.directory?(File.join(full_path, e)) ? "#{e}/" : e }.join("\n")
+        else
+          "Erro: Diretório não encontrado: #{path}"
+        end
+      rescue StandardError => e
+        "Erro ao listar arquivos: #{e.message}"
+      end
+
+      def read_file_content(path)
+        return 'Erro: Caminho inválido (tentativa de sair do root)' if path.include?('..')
+
+        full_path = File.join(Dir.pwd, path)
+
+        if File.file?(full_path)
+          File.read(full_path)
+        else
+          "Erro: Arquivo não encontrado: #{path}"
+        end
+      rescue StandardError => e
+        "Erro ao ler arquivo: #{e.message}"
       end
     end
   end

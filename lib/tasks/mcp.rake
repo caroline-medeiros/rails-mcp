@@ -10,46 +10,69 @@ namespace :mcp do
 
     script_content = <<~SCRIPT
       #!/bin/bash
-      # Wrapper Rails MCP (Silent Mode)
+      # Wrapper Rails MCP (Nuclear Option)
       # Gerado em: #{Time.now}
 
-      # 1. Redireciona TUDO que não for explicito para o log
-      # Isso impede que erros do shell ou do tema sujem o canal JSON
+      # 1. Redireciona logs para debug (crucial para não sujar o JSON)
       LOGfile="$HOME/mcp-debug.log"
       exec 2>> "$LOGfile"
 
-      PROJECT_PATH=$1
-
-      # 2. Carrega RVM ou rbenv de forma minimalista (sem carregar temas do ZSH)
+      PROJECT_PATH="$1"
+      
+      # Garante que o HOME está setado
       export HOME="#{Dir.home}"
+      
+      # Entra no projeto
+      cd "$PROJECT_PATH" || { echo "Erro ao entrar em $PROJECT_PATH" >&2; exit 1; }
 
-      # Tenta carregar o perfil bash (mais limpo que zshrc) ou carrega RVM direto
-      if [ -s "$HOME/.rvm/scripts/rvm" ]; then
-        source "$HOME/.rvm/scripts/rvm" > /dev/null 2>&1
-      elif [ -d "$HOME/.rbenv/bin" ]; then
-        export PATH="$HOME/.rbenv/bin:$PATH"
-        eval "$(rbenv init - bash)" > /dev/null 2>&1
-      fi
+      # --- TRUQUE PARA LER VERSÃO SEM PERMISSÃO DE LEITURA DIRETA ---
+      # O macOS bloqueia 'cat .ruby-version', mas o binário do ruby geralmente consegue ler.
+      # Tentamos ler a versão usando o ruby padrão do sistema ou qualquer um disponível.
+      
+      RUBY_VERSION_FILE=".ruby-version"
+      REQUIRED_VERSION=""
 
-      # 3. Entra na pasta
-      cd "$PROJECT_PATH" || exit 1
-
-      # 4. Força a versão do Ruby (Bypass de permissão)
-      if [ -f ".ruby-version" ]; then
-        # Lê a versão usando Ruby para evitar erro de permissão do 'cat'
-        REQUIRED_VERSION=$(ruby -e 'print File.read(".ruby-version").strip' 2>/dev/null)
-      #{'  '}
-        if [ -n "$REQUIRED_VERSION" ]; then
-          # Tenta mudar a versão silenciosamente
-          rvm use "$REQUIRED_VERSION" > /dev/null 2>&1 || true
-          rbenv local "$REQUIRED_VERSION" > /dev/null 2>&1 || true
+      if [ -f "$RUBY_VERSION_FILE" ]; then
+        # Tenta ler usando ruby
+        REQUIRED_VERSION=$(ruby -e "puts File.read('$RUBY_VERSION_FILE').strip" 2>/dev/null)
+        
+        # Se falhou (ruby não achou), tenta head/cat (vai que...)
+        if [ -z "$REQUIRED_VERSION" ]; then
+           REQUIRED_VERSION=$(head -n 1 "$RUBY_VERSION_FILE" 2>/dev/null)
         fi
       fi
 
-      # 5. Roda a gem garantindo que STDIN/STDOUT estão limpos
-      # O 'exec' substitui o processo do shell pelo do Ruby
+      echo "--> Projeto: $PROJECT_PATH" >&2
+      echo "--> Versão detectada: ${REQUIRED_VERSION:-Indefinida}" >&2
+
+      # --- CARREGA O RVM ---
+      # Carregamos o RVM explicitamente para ter acesso ao comando 'rvm'
+      if [ -s "$HOME/.rvm/scripts/rvm" ]; then
+        source "$HOME/.rvm/scripts/rvm"
+        
+        # Se descobrimos a versão, forçamos o uso dela
+        if [ -n "$REQUIRED_VERSION" ]; then
+          echo "--> Forçando RVM use $REQUIRED_VERSION" >&2
+          rvm use "$REQUIRED_VERSION" > /dev/null 2>&1
+        else
+          # Se não, tenta o padrão
+          rvm use . > /dev/null 2>&1
+        fi
+      elif [ -d "$HOME/.rbenv/bin" ]; then
+         export PATH="$HOME/.rbenv/bin:$PATH"
+         eval "$(rbenv init - bash)" > /dev/null 2>&1
+         if [ -n "$REQUIRED_VERSION" ]; then
+            rbenv local "$REQUIRED_VERSION" > /dev/null 2>&1
+         fi
+      fi
+
+      # --- EXECUÇÃO ---
+      # Garante dependências silenciosamente
       bundle check > /dev/null 2>&1 || bundle install > /dev/null 2>&1
 
+      # Roda a gem usando 'exec' para substituir o processo shell
+      # Isso garante que os sinais (como fechar conexão) vão direto pro Ruby
+      echo "--> Iniciando Rails MCP..." >&2
       exec bundle exec rails-mcp
     SCRIPT
 

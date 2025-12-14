@@ -18,24 +18,24 @@ namespace :mcp do
       exec 2>> "$LOGfile"
 
       PROJECT_PATH="$1"
-      
+
       # Garante que o HOME está setado
       export HOME="#{Dir.home}"
-      
+
       # Entra no projeto
       cd "$PROJECT_PATH" || { echo "Erro ao entrar em $PROJECT_PATH" >&2; exit 1; }
 
       # --- TRUQUE PARA LER VERSÃO SEM PERMISSÃO DE LEITURA DIRETA ---
       # O macOS bloqueia 'cat .ruby-version', mas o binário do ruby geralmente consegue ler.
       # Tentamos ler a versão usando o ruby padrão do sistema ou qualquer um disponível.
-      
+
       RUBY_VERSION_FILE=".ruby-version"
       REQUIRED_VERSION=""
 
       if [ -f "$RUBY_VERSION_FILE" ]; then
         # Tenta ler usando ruby
         REQUIRED_VERSION=$(ruby -e "puts File.read('$RUBY_VERSION_FILE').strip" 2>/dev/null)
-        
+      #{'  '}
         # Se falhou (ruby não achou), tenta head/cat (vai que...)
         if [ -z "$REQUIRED_VERSION" ]; then
            REQUIRED_VERSION=$(head -n 1 "$RUBY_VERSION_FILE" 2>/dev/null)
@@ -49,7 +49,7 @@ namespace :mcp do
       # Carregamos o RVM explicitamente para ter acesso ao comando 'rvm'
       if [ -s "$HOME/.rvm/scripts/rvm" ]; then
         source "$HOME/.rvm/scripts/rvm"
-        
+      #{'  '}
         # Se descobrimos a versão, forçamos o uso dela
         if [ -n "$REQUIRED_VERSION" ]; then
           echo "--> Forçando RVM use $REQUIRED_VERSION" >&2

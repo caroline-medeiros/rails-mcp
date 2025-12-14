@@ -1,69 +1,92 @@
-# 💎 Rails MCP Server
+💎 Rails MCP Server
+===================
 
 **Connect your Rails application to AI assistants using the Model Context Protocol (MCP).**
 
-This gem acts as a bridge between your Rails app and AI coding tools (like Cursor, Windsurf, or Claude Desktop). It allows the AI to "read" your application's context directly, preventing hallucinations and improving code generation.
+This gem acts as a bridge between your Rails app and AI coding tools (like Claude Desktop, Cursor, or Windsurf). It allows the AI to "read" your application's context directly, preventing hallucinations and improving code generation.
 
-## 🚀 Features
+🚀 Features
+-----------
 
 Currently, this MCP Server allows the AI to read:
 
-- **Database Schema:** Reads `db/schema.rb` to understand your tables and columns.
-- **Application Routes:** Inspects `Rails.application.routes` to understand your API endpoints and controllers.
-- **Active Record (Coming Soon):** Future support for querying data directly.
+-   **Database Schema:** Reads `db/schema.rb` to understand your tables and columns.
 
-## 📦 Installation
+-   **Application Routes:** Inspects `Rails.application.routes` to understand your API endpoints and controllers.
 
-Add this line to your application's `Gemfile`. Since this is a local/git gem for now, specify the source:
+-   **Active Record (Coming Soon):** Future support for querying data directly.
 
-```ruby
+📦 Installation
+---------------
+
+Add this line to your application's `Gemfile`:
+
+Ruby
+
+```
 # In your Rails App Gemfile
-gem 'rails-mcp', git: '[https://github.com/caroline-medeiros/rails-mcp.git](https://github.com/caroline-medeiros/rails-mcp.git)'
+gem 'rails-mcp', git: 'https://github.com/caroline-medeiros/rails-mcp.git'
+
 ```
 
-## And then execute:
+And then execute:
 
-``` bundle install ```
+Bash
 
-## 🔌 Configuration
-To use this with an MCP client (like Claude Desktop or Cursor), add the following configuration to your MCP settings file.
+```
+bundle install
 
-For Claude Desktop / Cursor
-Add this to your configuration JSON:
-
-```json
-{
-  "mcpServers": {
-    "rails-app": {
-      "command": "bundle",
-      "args": ["exec", "rails-mcp"]
-    }
-  }
-}
 ```
 
-Note: You must open your AI editor inside the root folder of your Rails application for the gem to detect the environment correctly.
+🔌 Configuration (The Magic ✨)
+------------------------------
 
-## 🛠️ Development & Testing
+Forget about editing JSON files manually! This gem comes with an automated setup task that detects your Ruby environment, creates a secure wrapper script, and configures Claude Desktop for you.
+
+Simply run this command in your project terminal:
+
+Bash
+
+```
+bundle exec rake mcp:setup
+
+```
+
+**This task will:**
+
+1.  Generate a `rails-mcp-wrapper.sh` in your home folder (handling RVM/Ruby versions automatically).
+
+2.  Update your `claude_desktop_config.json` adding the current project.
+
+**After running the command:** 👉 **Restart Claude Desktop completely.** You should see the 🔌 icon indicating the tool is connected.
+
+* * * * *
+
+🛠️ Development & Testing
+-------------------------
 
 To test the gem locally without installing it in a Rails app, you can use the MCP Inspector:
 
-Clone this repository.
+1.  Clone this repository.
 
-Run the inspector:
+2.  Run the inspector:
+
+Bash
 
 ```
 npx @modelcontextprotocol/inspector ./exe/rails-mcp
+
 ```
 
-## 🤝 Contributing
+🤝 Contributing
+---------------
+
 Bug reports and pull requests are welcome on GitHub. This project is intended to be a safe, welcoming space for collaboration.
 
-## 📝 License
+📝 License
+----------
+
 The gem is available as open source under the terms of the MIT License.
+----------
 
-------------------------------------------------------------------------
-
-## Desenvolvido por
-
-Caroline Medeiros
+by Caroline Medeiros

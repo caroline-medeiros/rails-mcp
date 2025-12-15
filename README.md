@@ -52,6 +52,13 @@ bundle exec rake mcp:setup
 
 ```
 
+Create the shortcut (important)
+
+```
+bundle binstubs rails-mcp
+
+```
+
 **This task will:**
 
 1.  Generate a `rails-mcp-wrapper.sh` in your home folder (handling RVM/Ruby versions automatically).
